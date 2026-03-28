@@ -97,6 +97,19 @@ export default function App() {
       onAiWarning: ({ message }) => {
         addLog(`⚠ ${message}`, 'error')
       },
+      onAiStep: ({ step, url, phones, emails, address, error }) => {
+        if (step === 'building_queries') {
+          addLog('✨ Building optimised search queries…', 'ai')
+        } else if (step === 'extracting') {
+          const short = url.length > 60 ? url.slice(0, 57) + '…' : url
+          addLog('✨ Extracting contacts from ' + short, 'ai')
+        } else if (step === 'extracted') {
+          const parts = [phones && phones + ' phone(s)', emails && emails + ' email(s)', address && 'address'].filter(Boolean)
+          addLog('   → ' + (parts.length ? parts.join(', ') : 'no data found'), 'ai')
+        } else if (step === 'extraction_failed') {
+          addLog('   ⚠ AI extraction failed: ' + error, 'error')
+        }
+      },
       onUrlsFound: ({ urls, total }) => {
         addLog(`Found ${total} URL(s) to scrape.`, 'info')
         urls.forEach(u => addLog(`  → ${u}`, 'default'))

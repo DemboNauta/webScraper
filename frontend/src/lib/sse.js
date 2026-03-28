@@ -19,7 +19,7 @@
 export function startScrapeSSE({
   endpoint, body,
   onStart, onUrlsFound, onProgress, onDone, onError,
-  onAiQueries, onAiWarning,
+  onAiQueries, onAiWarning, onAiStep,
   onWebhookSent, onWebhookError,
 }) {
   const controller = new AbortController()
@@ -76,6 +76,7 @@ export function startScrapeSSE({
             else if (event === 'error')        onError?.(parsed.message)
             else if (event === 'ai_queries')   onAiQueries?.(parsed)
             else if (event === 'ai_warning')   onAiWarning?.(parsed)
+            else if (event === 'ai_step')       onAiStep?.(parsed)
             else if (event === 'webhook_sent')  onWebhookSent?.(parsed)
             else if (event === 'webhook_error') onWebhookError?.(parsed)
           } catch {

@@ -14,7 +14,8 @@
     "lucide-react": "^0.441.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tailwind-merge": "^2.5.2"
+    "tailwind-merge": "^2.5.2",
+    "web-scraper": "file:.."
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",
