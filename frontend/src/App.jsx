@@ -11,9 +11,9 @@ import { cn } from './lib/cn'
 import { startScrapeSSE } from './lib/sse'
 
 const TABS = [
-  { id: 'search', label: 'Buscar negocios', icon: Search },
-  { id: 'urls', label: 'URLs directas', icon: Link },
-  { id: 'history', label: 'Historial', icon: History },
+  { id: 'search', label: 'Search businesses', icon: Search },
+  { id: 'urls', label: 'Direct URLs', icon: Link },
+  { id: 'history', label: 'History', icon: History },
 ]
 
 export default function App() {
@@ -37,7 +37,7 @@ export default function App() {
 
   function abort() {
     abortCtrl?.abort()
-    addLog('Scraping cancelado.', 'error')
+    addLog('Scraping cancelled.', 'error')
     setStatus('error')
   }
 
@@ -52,13 +52,13 @@ export default function App() {
       body,
       onStart: ({ total, mode, query, location }) => {
         if (mode === 'search') {
-          addLog(`Buscando "${query}" en ${location}…`, 'info')
+          addLog(`Searching "${query}" in ${location}…`, 'info')
         } else {
-          addLog(`Iniciando scraping de ${total} URL(s)…`, 'info')
+          addLog(`Starting scrape of ${total} URL(s)…`, 'info')
         }
       },
       onUrlsFound: ({ urls, total }) => {
-        addLog(`Encontradas ${total} URLs para scrapear.`, 'info')
+        addLog(`Found ${total} URL(s) to scrape.`, 'info')
         urls.forEach(u => addLog(`  → ${u}`, 'default'))
       },
       onProgress: ({ result }) => {
@@ -77,7 +77,7 @@ export default function App() {
         setResults(allResults)
         setFiles(f)
         setStatus('done')
-        addLog(`Scraping completado. ${allResults.length} resultados.`, 'success')
+        addLog(`Scraping complete. ${allResults.length} result(s).`, 'success')
       },
       onError: (msg) => {
         addLog(`Error: ${msg}`, 'error')
@@ -92,7 +92,7 @@ export default function App() {
     setResults(data)
     setFiles({ json: filename, csv: filename.replace('.json', '.csv') })
     setStatus('done')
-    setLogs([{ text: `Cargado: ${filename} (${data.length} resultados)`, type: 'info' }])
+    setLogs([{ text: `Loaded: ${filename} (${data.length} result(s))`, type: 'info' }])
   }
 
   return (
@@ -102,7 +102,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
           <Globe size={20} className="text-primary" />
           <span className="font-semibold tracking-tight">WebScraper</span>
-          <span className="text-muted-foreground text-sm hidden sm:inline">— extracción de contactos</span>
+          <span className="text-muted-foreground text-sm hidden sm:inline">— contact extractor</span>
         </div>
       </header>
 
@@ -150,12 +150,12 @@ export default function App() {
             <div className="flex items-center justify-between">
               {status === 'running' && (
                 <Button variant="outline" size="sm" onClick={abort}>
-                  <X size={13} /> Cancelar
+                  <X size={13} /> Cancel
                 </Button>
               )}
               {(status === 'done' || status === 'error') && (
                 <Button variant="ghost" size="sm" onClick={reset}>
-                  <X size={13} /> Limpiar
+                  <X size={13} /> Clear
                 </Button>
               )}
             </div>

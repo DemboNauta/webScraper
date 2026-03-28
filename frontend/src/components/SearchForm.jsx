@@ -24,20 +24,20 @@ export function SearchForm({ onScrape, isRunning }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="query">Qué buscar</Label>
+          <Label htmlFor="query">What to search</Label>
           <Input
             id="query"
-            placeholder="restaurante italiano, bar de tapas…"
+            placeholder="italian restaurant, tapas bar…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             disabled={isRunning}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="location">Dónde</Label>
+          <Label htmlFor="location">Where</Label>
           <Input
             id="location"
-            placeholder="Madrid, Barcelona, Sevilla…"
+            placeholder="Madrid, Barcelona, New York…"
             value={location}
             onChange={e => setLocation(e.target.value)}
             disabled={isRunning}
@@ -47,7 +47,7 @@ export function SearchForm({ onScrape, isRunning }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="limit">Resultados</Label>
+          <Label htmlFor="limit">Results limit</Label>
           <Input
             id="limit"
             type="number"
@@ -59,7 +59,7 @@ export function SearchForm({ onScrape, isRunning }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="engine">Motor</Label>
+          <Label htmlFor="engine">Engine</Label>
           <Select id="engine" value={engine} onChange={e => setEngine(e.target.value)} disabled={isRunning}>
             <option value="duckduckgo">DuckDuckGo</option>
             <option value="google">Google</option>

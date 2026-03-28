@@ -10,15 +10,15 @@ async function exportCsv(results, outputPath) {
   const csvWriter = createObjectCsvWriter({
     path: outputPath,
     header: [
-      { id: 'title', title: 'Nombre' },
-      { id: 'url', title: 'Web' },
-      { id: 'phones', title: 'Teléfonos' },
+      { id: 'title', title: 'Name' },
+      { id: 'url', title: 'Website' },
+      { id: 'phones', title: 'Phones' },
       { id: 'emails', title: 'Emails' },
-      { id: 'address', title: 'Dirección' },
+      { id: 'address', title: 'Address' },
       { id: 'instagram', title: 'Instagram' },
       { id: 'facebook', title: 'Facebook' },
       { id: 'tripadvisor', title: 'TripAdvisor' },
-      { id: 'description', title: 'Descripción' },
+      { id: 'description', title: 'Description' },
     ],
   });
 

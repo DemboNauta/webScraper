@@ -9,7 +9,7 @@ const config = require('../../config/default');
  */
 async function googleSearch(query, { limit = 10, userAgent } = {}) {
   const encoded = encodeURIComponent(query);
-  const url = `https://www.google.com/search?q=${encoded}&num=${limit}&hl=es`;
+  const url = `https://www.google.com/search?q=${encoded}&num=${limit}&hl=en`;
 
   const headers = {
     ...config.request.headers,
@@ -75,12 +75,12 @@ async function duckDuckGoSearch(query, { limit = 10, userAgent } = {}) {
 }
 
 /**
- * Build a restaurant-specific search query.
- * @param {string} name - Restaurant name or type (e.g. "restaurante italiano")
+ * Build a business-specific search query to find contact details.
+ * @param {string} name - Business name or type (e.g. "italian restaurant")
  * @param {string} location - City or area (e.g. "Madrid")
  */
 function buildRestaurantQuery(name, location) {
-  return `${name} ${location} teléfono contacto restaurante -tripadvisor -eltenedor -thefork`;
+  return `${name} ${location} phone contact -tripadvisor -eltenedor -thefork`;
 }
 
 module.exports = { googleSearch, duckDuckGoSearch, buildRestaurantQuery };
