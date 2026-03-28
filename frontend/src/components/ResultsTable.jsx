@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { ExternalLink, Phone, Mail, MapPin, Download } from 'lucide-react'
 import { Badge } from './ui/Badge'
 import { Button } from './ui/Button'
+import { ResultsFilter } from './ResultsFilter'
 import { downloadUrl } from '../lib/api'
 
 function Dash() {
@@ -23,9 +25,37 @@ function SocialLinks({ socials = {} }) {
   )
 }
 
+function applyFilters(results, filters) {
+  let out = [...results]
+  if (filters.query) {
+    const q = filters.query.toLowerCase()
+    out = out.filter(r => (r.title || '').toLowerCase().includes(q) || (r.url || '').toLowerCase().includes(q))
+  }
+  if (filters.hasPhone) out = out.filter(r => r.phones?.length > 0)
+  if (filters.hasEmail) out = out.filter(r => r.emails?.length > 0)
+  if (filters.hasAddress) out = out.filter(r => r.address)
+  if (filters.hasSocial) out = out.filter(r => Object.values(r.socials || {}).some(Boolean))
+  if (filters.sort === 'name') out.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+  if (filters.sort === 'phones') out.sort((a, b) => (b.phones?.length || 0) - (a.phones?.length || 0))
+  if (filters.sort === 'emails') out.sort((a, b) => (b.emails?.length || 0) - (a.emails?.length || 0))
+  return out
+}
+
+const DEFAULT_FILTERS = {
+  query: '',
+  hasPhone: false,
+  hasEmail: false,
+  hasAddress: false,
+  hasSocial: false,
+  sort: 'default',
+}
+
 export function ResultsTable({ results, csvFile }) {
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+
   if (results.length === 0) return null
 
+  const filtered = applyFilters(results, filters)
   const withPhone = results.filter(r => r.phones?.length > 0).length
   const withEmail = results.filter(r => r.emails?.length > 0).length
 
@@ -48,6 +78,14 @@ export function ResultsTable({ results, csvFile }) {
         )}
       </div>
 
+      {/* Filter bar */}
+      <ResultsFilter
+        filters={filters}
+        onFiltersChange={setFilters}
+        total={results.length}
+        filtered={filtered.length}
+      />
+
       {/* Table */}
       <div className="rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
@@ -62,7 +100,7 @@ export function ResultsTable({ results, csvFile }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {results.map((r, i) => (
+              {filtered.map((r, i) => (
                 <tr key={i} className={r.error ? 'bg-red-50/50' : 'hover:bg-muted/30 transition-colors'}>
                   {/* Name + URL */}
                   <td className="px-3 py-3 align-top">

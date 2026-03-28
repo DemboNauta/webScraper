@@ -1,15 +1,18 @@
-import { useState, useCallback } from 'react'
-import { Globe, Search, Link, History, X } from 'lucide-react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { Globe, Search, Link, History, X, Moon, Sun, Table2, Map } from 'lucide-react'
 import { SearchForm } from './components/SearchForm'
 import { UrlsForm } from './components/UrlsForm'
 import { ProgressLog } from './components/ProgressLog'
 import { ResultsTable } from './components/ResultsTable'
+import { MapView } from './components/MapView'
 import { HistoryTab } from './components/HistoryTab'
 import { AISettings, loadSettings } from './components/AISettings'
 import { Card, CardContent } from './components/ui/Card'
 import { Button } from './components/ui/Button'
+import { Switch } from './components/ui/Switch'
 import { cn } from './lib/cn'
 import { startScrapeSSE } from './lib/sse'
+import { deduplicateResults } from './lib/dedupe'
 
 const TABS = [
   { id: 'search', label: 'Search businesses', icon: Search },
@@ -25,6 +28,25 @@ export default function App() {
   const [files, setFiles] = useState(null)
   const [abortCtrl, setAbortCtrl] = useState(null)
   const [aiConfig, setAiConfig] = useState(loadSettings)
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
+  const [dedupEnabled, setDedupEnabled] = useState(false)
+  const [view, setView] = useState('table') // 'table' | 'map'
+
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [dark])
+
+  const displayResults = useMemo(() => {
+    if (!dedupEnabled) return results
+    const { results: deduped } = deduplicateResults(results)
+    return deduped
+  }, [results, dedupEnabled])
 
   const addLog = useCallback((text, type = 'default') => {
     setLogs(prev => [...prev, { text, type }])
@@ -120,6 +142,15 @@ export default function App() {
           <Globe size={20} className="text-primary" />
           <span className="font-semibold tracking-tight">WebScraper</span>
           <span className="text-muted-foreground text-sm hidden sm:inline">— contact extractor</span>
+          <div className="ml-auto">
+            <button
+              onClick={() => setDark(d => !d)}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {dark ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -187,7 +218,28 @@ export default function App() {
 
         {/* Results */}
         {results.length > 0 && (
-          <ResultsTable results={results} csvFile={files?.csv} />
+          <div className="space-y-3">
+            {/* Controls bar */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* View toggle */}
+              <div className="flex rounded-lg border overflow-hidden">
+                <button onClick={() => setView('table')} className={cn('px-3 py-1.5 text-xs flex items-center gap-1.5', view === 'table' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted')}>
+                  <Table2 size={13} /> Table
+                </button>
+                <button onClick={() => setView('map')} className={cn('px-3 py-1.5 text-xs flex items-center gap-1.5 border-l', view === 'map' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted')}>
+                  <Map size={13} /> Map
+                </button>
+              </div>
+              {/* Dedup toggle */}
+              <div className="flex items-center gap-2">
+                <Switch id="dedup" checked={dedupEnabled} onCheckedChange={setDedupEnabled} />
+                <label htmlFor="dedup" className="text-xs cursor-pointer text-muted-foreground">Deduplicate</label>
+                {dedupEnabled && (() => { const { removed } = deduplicateResults(results); return removed > 0 ? <span className="text-xs text-muted-foreground">({removed} removed)</span> : null })()}
+              </div>
+            </div>
+            {view === 'table' && <ResultsTable results={displayResults} csvFile={files?.csv} />}
+            {view === 'map' && <MapView results={displayResults} />}
+          </div>
         )}
       </main>
     </div>
