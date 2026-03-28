@@ -227,6 +227,24 @@ app.post('/api/scrape/urls', async (req, res) => {
     const files = await scraper.export('both', 'urls').catch(() => []);
     const filenames = files.map(f => path.basename(f));
 
+    // Send webhook if configured
+    const webhookCfg = req.body?.webhookConfig?.enabled ? req.body.webhookConfig : null;
+    if (webhookCfg?.url) {
+      const withPhone = scraper.results.filter(r => r.phones?.length > 0).length;
+      const withEmail = scraper.results.filter(r => r.emails?.length > 0).length;
+      try {
+        await sendWebhook(webhookCfg, {
+          event: 'scrape.completed',
+          timestamp: new Date().toISOString(),
+          results: scraper.results,
+          meta: { total: scraper.results.length, withPhone, withEmail, mode: 'urls' },
+        });
+        sse.send('webhook_sent', { url: webhookCfg.url });
+      } catch (err) {
+        sse.send('webhook_error', { url: webhookCfg.url, message: err.message });
+      }
+    }
+
     sse.send('done', {
       results: scraper.results,
       files: {

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Webhook, ChevronDown, ChevronUp } from 'lucide-react'
-import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Label } from './ui/Label'
 import { Switch } from './ui/Switch'
