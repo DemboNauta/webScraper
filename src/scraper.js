@@ -13,15 +13,21 @@ const fs = require('fs');
  * Main scraper class. Supports two modes:
  *  - 'urls'   : scrape a provided list of URLs directly
  *  - 'search' : search for businesses by keyword + location, then scrape results
+ *
+ * Optional AI features (requires aiConfig.enabled = true):
+ *  - AI extraction : replaces regex-based contact extraction with an LLM call
  */
 class Scraper {
   constructor(options = {}) {
-    this.mode = options.mode || 'urls';       // 'urls' | 'search'
+    this.mode = options.mode || 'urls';
     this.useBrowser = options.browser || false;
     this.concurrency = options.concurrency || config.concurrency;
     this.outputDir = options.outputDir || path.join(__dirname, '..', 'results');
-    this.searchEngine = options.searchEngine || 'duckduckgo'; // 'google' | 'duckduckgo'
+    this.searchEngine = options.searchEngine || 'duckduckgo';
     this.onProgress = options.onProgress || null;
+    // aiConfig: { enabled, provider, model, apiKey, baseUrl, features: { extraction } }
+    this.aiConfig = options.aiConfig || null;
+    this.aiModel = null; // lazy-initialised on first use
     this.results = [];
 
     if (!fs.existsSync(this.outputDir)) {
@@ -37,19 +43,16 @@ class Scraper {
     const limit = pLimit(this.concurrency);
     console.log(chalk.blue(`\nScraping ${urls.length} URL(s) [concurrency=${this.concurrency}]...\n`));
 
-    const tasks = urls.map(url =>
-      limit(() => this._scrapeOne(url))
-    );
-
+    const tasks = urls.map(url => limit(() => this._scrapeOne(url)));
     this.results = await Promise.all(tasks);
     return this.results;
   }
 
   /**
    * Search for businesses matching a query and location, then scrape each result.
-   * @param {string} query   e.g. "restaurante italiano"
+   * @param {string} query    e.g. "italian restaurant"
    * @param {string} location e.g. "Barcelona"
-   * @param {number} limit   max results to scrape
+   * @param {number} limit    max results to scrape
    */
   async searchAndScrape(query, location, limit = 10) {
     const searchQuery = buildRestaurantQuery(query, location);
@@ -72,17 +75,35 @@ class Scraper {
   }
 
   /**
-   * Scrape a single URL, with retry and fallback logic.
+   * Lazily initialise the AI model instance (only on first use).
+   * Returns null if AI is disabled or initialisation fails.
+   */
+  async _getAIModel() {
+    if (!this.aiConfig?.enabled) return null;
+    if (this.aiModel) return this.aiModel;
+
+    try {
+      const { createModel } = require('./ai/provider');
+      this.aiModel = await createModel(this.aiConfig);
+      console.log(chalk.magenta(`  ✨ AI extraction enabled (${this.aiConfig.provider}/${this.aiConfig.model})`));
+      return this.aiModel;
+    } catch (err) {
+      console.warn(chalk.yellow(`  ⚠ AI init failed, falling back to regex: ${err.message}`));
+      return null;
+    }
+  }
+
+  /**
+   * Scrape a single URL with optional AI extraction.
    */
   async _scrapeOne(url) {
     console.log(chalk.cyan(`  → ${url}`));
     try {
       let result;
+
       if (this.useBrowser) {
         result = await scrapeWithBrowser(url);
-        // If browser didn't find contacts, try sub-pages via static scraper
         if (result.phones.length === 0 && result.emails.length === 0 && result.contactPageLinks.length > 0) {
-          const { scrapeWithFallback } = require('./sources/direct');
           for (const link of result.contactPageLinks.slice(0, 2)) {
             try {
               const sub = await scrapeWithBrowser(link);
@@ -97,6 +118,23 @@ class Scraper {
       } else {
         result = await scrapeWithFallback(url);
       }
+
+      // AI extraction: run over the page text if AI is enabled and configured
+      if (this.aiConfig?.enabled && this.aiConfig?.features?.extraction !== false) {
+        const model = await this._getAIModel();
+        if (model && result._pageText) {
+          try {
+            const { extractWithAI, mergeResults } = require('./ai/extractor');
+            const aiData = await extractWithAI(result._pageText, model);
+            result = mergeResults(aiData, result);
+          } catch (aiErr) {
+            console.warn(chalk.yellow(`  ⚠ AI extraction failed for ${url}: ${aiErr.message}`));
+          }
+        }
+      }
+
+      // Remove internal field before returning
+      delete result._pageText;
 
       this._logResult(result);
       if (this.onProgress) this.onProgress(result);
@@ -114,10 +152,12 @@ class Scraper {
   _logResult(r) {
     const phones = r.phones.length ? chalk.green(r.phones.join(', ')) : chalk.gray('no phones');
     const emails = r.emails.length ? chalk.green(r.emails.join(', ')) : chalk.gray('no emails');
-    console.log(`    ${chalk.bold(r.title || r.url)}`);
+    const aiTag = r.extractedBy === 'ai' ? chalk.magenta(' ✨') : '';
+    console.log(`    ${chalk.bold(r.title || r.url)}${aiTag}`);
     console.log(`    📞 ${phones}`);
     console.log(`    ✉  ${emails}`);
     if (r.address) console.log(`    📍 ${chalk.green(r.address)}`);
+    if (r.openingHours) console.log(`    🕐 ${chalk.gray(r.openingHours)}`);
     const soc = Object.keys(r.socials || {}).join(', ');
     if (soc) console.log(`    🔗 ${chalk.blue(soc)}`);
     console.log('');

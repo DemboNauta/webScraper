@@ -3,16 +3,22 @@
  * EventSource only supports GET, so we use fetch + ReadableStream.
  *
  * @param {object} opts
- * @param {string} opts.endpoint
- * @param {object} opts.body
+ * @param {string}   opts.endpoint
+ * @param {object}   opts.body
  * @param {function} opts.onStart
  * @param {function} opts.onUrlsFound
  * @param {function} opts.onProgress
  * @param {function} opts.onDone
  * @param {function} opts.onError
+ * @param {function} opts.onAiQueries   — AI query builder result
+ * @param {function} opts.onAiWarning   — non-fatal AI warning
  * @returns {{ abort: () => void }}
  */
-export function startScrapeSSE({ endpoint, body, onStart, onUrlsFound, onProgress, onDone, onError }) {
+export function startScrapeSSE({
+  endpoint, body,
+  onStart, onUrlsFound, onProgress, onDone, onError,
+  onAiQueries, onAiWarning,
+}) {
   const controller = new AbortController()
 
   ;(async () => {
@@ -60,11 +66,13 @@ export function startScrapeSSE({ endpoint, body, onStart, onUrlsFound, onProgres
 
           try {
             const parsed = JSON.parse(data)
-            if (event === 'start') onStart?.(parsed)
-            else if (event === 'urls_found') onUrlsFound?.(parsed)
-            else if (event === 'progress') onProgress?.(parsed)
-            else if (event === 'done') onDone?.(parsed)
-            else if (event === 'error') onError?.(parsed.message)
+            if (event === 'start')        onStart?.(parsed)
+            else if (event === 'urls_found')   onUrlsFound?.(parsed)
+            else if (event === 'progress')     onProgress?.(parsed)
+            else if (event === 'done')         onDone?.(parsed)
+            else if (event === 'error')        onError?.(parsed.message)
+            else if (event === 'ai_queries')   onAiQueries?.(parsed)
+            else if (event === 'ai_warning')   onAiWarning?.(parsed)
           } catch {
             // ignore malformed SSE lines
           }

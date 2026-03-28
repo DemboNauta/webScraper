@@ -59,6 +59,8 @@ async function scrapeUrl(url, options = {}) {
     description,
     ...contacts,
     contactPageLinks: [...new Set(contactPageLinks)].slice(0, 5),
+    // Internal field: plain text for optional AI extraction (stripped before export)
+    _pageText: $('body').text().replace(/\s+/g, ' ').trim(),
   };
 }
 

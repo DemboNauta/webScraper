@@ -44,10 +44,35 @@ function isSafeFilename(name) {
   return /^[\w\-\.]+$/.test(name) && !name.includes('..');
 }
 
+// ─── AI config validation ─────────────────────────────────────────────────────
+
+/**
+ * Extract and validate aiConfig from the request body.
+ * Returns null if AI is disabled or config is missing/invalid.
+ */
+function parseAIConfig(body) {
+  const cfg = body?.aiConfig;
+  if (!cfg?.enabled) return null;
+  if (!cfg.provider) return null;
+  // apiKey is optional for Ollama
+  return {
+    enabled: true,
+    provider: cfg.provider,
+    model: cfg.model || null,
+    apiKey: cfg.apiKey || null,
+    baseUrl: cfg.baseUrl || null,
+    features: {
+      extraction: cfg.features?.extraction !== false,
+      queryBuilder: cfg.features?.queryBuilder !== false,
+    },
+  };
+}
+
 // ─── POST /api/scrape/search ──────────────────────────────────────────────────
 
 app.post('/api/scrape/search', async (req, res) => {
   const { query, location, limit = 10, engine = 'duckduckgo', browser = false } = req.body || {};
+  const aiConfig = parseAIConfig(req.body);
 
   if (!query || !location) {
     return res.status(400).json({ error: 'query and location are required' });
@@ -58,6 +83,7 @@ app.post('/api/scrape/search', async (req, res) => {
     useBrowser: !!browser,
     searchEngine: engine,
     outputDir: RESULTS_DIR,
+    aiConfig,
     onProgress: (result) => {
       sse.send('progress', {
         index: scraper.results.filter(Boolean).length,
@@ -69,24 +95,46 @@ app.post('/api/scrape/search', async (req, res) => {
   sse.send('start', { mode: 'search', query, location, limit });
 
   try {
-    // Run the search to get URLs first
-    const { buildRestaurantQuery } = require('./sources/search');
-    const { googleSearch, duckDuckGoSearch } = require('./sources/search');
-    const searchQuery = buildRestaurantQuery(query, location);
+    const { googleSearch, duckDuckGoSearch, buildRestaurantQuery } = require('./sources/search');
 
-    let urls = [];
-    try {
-      urls = engine === 'google'
-        ? await googleSearch(searchQuery, { limit: Number(limit) })
-        : await duckDuckGoSearch(searchQuery, { limit: Number(limit) });
-    } catch (err) {
-      sse.send('error', { message: `Search failed: ${err.message}` });
+    // If AI query builder is enabled, use it to generate optimised queries
+    let searchQueries = [buildRestaurantQuery(query, location)];
+    let actualLimit = Number(limit);
+
+    if (aiConfig?.enabled && aiConfig?.features?.queryBuilder) {
+      try {
+        const { buildSearchPlan } = require('./ai/queryBuilder');
+        const { createModel } = require('./ai/provider');
+        const model = await createModel(aiConfig);
+        const plan = await buildSearchPlan(query, location, model);
+        searchQueries = plan.queries;
+        if (plan.suggestedLimit) actualLimit = Math.min(plan.suggestedLimit, 50);
+        sse.send('ai_queries', { queries: searchQueries, limit: actualLimit, reasoning: plan.reasoning });
+      } catch (aiErr) {
+        sse.send('ai_warning', { message: `AI query builder failed, using default: ${aiErr.message}` });
+      }
+    }
+
+    // Collect URLs from all generated queries (deduplicated)
+    let allUrls = [];
+    for (const q of searchQueries) {
+      try {
+        const found = engine === 'google'
+          ? await googleSearch(q, { limit: actualLimit })
+          : await duckDuckGoSearch(q, { limit: actualLimit });
+        allUrls.push(...found);
+      } catch (_) {}
+    }
+    allUrls = [...new Set(allUrls)].slice(0, actualLimit);
+
+    if (allUrls.length === 0) {
+      sse.send('error', { message: 'Search returned no results' });
       return sse.close();
     }
 
-    sse.send('urls_found', { urls, total: urls.length });
+    sse.send('urls_found', { urls: allUrls, total: allUrls.length });
 
-    await scraper.scrapeUrls(urls);
+    await scraper.scrapeUrls(allUrls);
 
     const files = await scraper.export('both', 'search').catch(() => []);
     const filenames = files.map(f => path.basename(f));
@@ -110,6 +158,7 @@ app.post('/api/scrape/search', async (req, res) => {
 
 app.post('/api/scrape/urls', async (req, res) => {
   const { urls, browser = false } = req.body || {};
+  const aiConfig = parseAIConfig(req.body);
 
   if (!urls || !Array.isArray(urls) || urls.length === 0) {
     return res.status(400).json({ error: 'urls array is required' });
@@ -124,6 +173,7 @@ app.post('/api/scrape/urls', async (req, res) => {
   const scraper = new Scraper({
     useBrowser: !!browser,
     outputDir: RESULTS_DIR,
+    aiConfig,
     onProgress: (result) => {
       sse.send('progress', {
         index: scraper.results.filter(Boolean).length,
@@ -152,6 +202,29 @@ app.post('/api/scrape/urls', async (req, res) => {
   } finally {
     if (browser) await closeBrowser().catch(() => {});
     sse.close();
+  }
+});
+
+// ─── POST /api/ai/test ────────────────────────────────────────────────────────
+
+app.post('/api/ai/test', async (req, res) => {
+  const aiConfig = parseAIConfig(req.body);
+  if (!aiConfig) {
+    return res.status(400).json({ error: 'AI config missing or disabled' });
+  }
+
+  try {
+    const { createModel } = require('./ai/provider');
+    const { generateText } = await import('ai');
+    const model = await createModel(aiConfig);
+    const { text } = await generateText({
+      model,
+      prompt: 'Reply with exactly: "OK"',
+      maxTokens: 10,
+    });
+    res.json({ ok: true, response: text.trim() });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
   }
 });
 

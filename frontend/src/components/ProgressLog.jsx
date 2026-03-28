@@ -35,6 +35,7 @@ export function ProgressLog({ logs, status }) {
               log.type === 'error' && 'text-red-400',
               log.type === 'success' && 'text-emerald-400',
               log.type === 'info' && 'text-blue-400',
+              log.type === 'ai' && 'text-purple-400',
               log.type === 'default' && 'text-zinc-300',
             )}
           >

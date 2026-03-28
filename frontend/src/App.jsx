@@ -5,6 +5,7 @@ import { UrlsForm } from './components/UrlsForm'
 import { ProgressLog } from './components/ProgressLog'
 import { ResultsTable } from './components/ResultsTable'
 import { HistoryTab } from './components/HistoryTab'
+import { AISettings, loadSettings } from './components/AISettings'
 import { Card, CardContent } from './components/ui/Card'
 import { Button } from './components/ui/Button'
 import { cn } from './lib/cn'
@@ -23,6 +24,7 @@ export default function App() {
   const [results, setResults] = useState([])
   const [files, setFiles] = useState(null)
   const [abortCtrl, setAbortCtrl] = useState(null)
+  const [aiConfig, setAiConfig] = useState(loadSettings)
 
   const addLog = useCallback((text, type = 'default') => {
     setLogs(prev => [...prev, { text, type }])
@@ -49,13 +51,27 @@ export default function App() {
 
     const ctrl = startScrapeSSE({
       endpoint,
-      body,
+      body: { ...body, aiConfig },
       onStart: ({ total, mode, query, location }) => {
         if (mode === 'search') {
           addLog(`Searching "${query}" in ${location}…`, 'info')
         } else {
           addLog(`Starting scrape of ${total} URL(s)…`, 'info')
         }
+        if (aiConfig?.enabled) {
+          const features = []
+          if (aiConfig.features?.queryBuilder) features.push('query builder')
+          if (aiConfig.features?.extraction) features.push('extraction')
+          addLog(`✨ AI enabled (${aiConfig.provider}/${aiConfig.model || 'default'}) — ${features.join(', ')}`, 'ai')
+        }
+      },
+      onAiQueries: ({ queries, limit, reasoning }) => {
+        addLog(`✨ AI generated ${queries.length} search quer${queries.length !== 1 ? 'ies' : 'y'} (limit: ${limit})`, 'ai')
+        if (reasoning) addLog(`   ${reasoning}`, 'ai')
+        queries.forEach(q => addLog(`   → "${q}"`, 'ai'))
+      },
+      onAiWarning: ({ message }) => {
+        addLog(`⚠ ${message}`, 'error')
       },
       onUrlsFound: ({ urls, total }) => {
         addLog(`Found ${total} URL(s) to scrape.`, 'info')
@@ -69,7 +85,8 @@ export default function App() {
             result.phones?.length && `📞 ${result.phones[0]}`,
             result.emails?.length && `✉ ${result.emails[0]}`,
           ].filter(Boolean).join('  ')
-          addLog(`✓ ${result.title || result.url}${info ? '  —  ' + info : ''}`, 'success')
+          const aiTag = result.extractedBy === 'ai' ? ' ✨' : ''
+          addLog(`✓ ${result.title || result.url}${aiTag}${info ? '  —  ' + info : ''}`, 'success')
         }
         setResults(prev => [...prev, result])
       },
@@ -106,7 +123,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-4">
 
         {/* Control card */}
         <Card>
@@ -131,7 +148,7 @@ export default function App() {
             </div>
           </div>
 
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 space-y-5">
             {tab === 'search' && (
               <SearchForm onScrape={handleScrape} isRunning={status === 'running'} />
             )}
@@ -140,6 +157,11 @@ export default function App() {
             )}
             {tab === 'history' && (
               <HistoryTab onLoad={handleHistoryLoad} />
+            )}
+
+            {/* AI Settings panel — shown on search and urls tabs */}
+            {tab !== 'history' && (
+              <AISettings onChange={setAiConfig} />
             )}
           </CardContent>
         </Card>
