@@ -11,7 +11,7 @@ function formatSize(bytes) {
 }
 
 function formatDate(str) {
-  return new Date(str).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(str).toLocaleString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 export function HistoryTab({ onLoad }) {
@@ -39,7 +39,7 @@ export function HistoryTab({ onLoad }) {
       const data = await fetchResultFile(filename)
       onLoad(data, filename)
     } catch (e) {
-      alert('Error cargando el fichero: ' + e.message)
+      alert('Error loading file: ' + e.message)
     } finally {
       setLoadingFile(null)
     }
@@ -49,24 +49,24 @@ export function HistoryTab({ onLoad }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Resultados guardados en <code className="text-xs bg-muted px-1 py-0.5 rounded">results/</code>
+          Results saved in <code className="text-xs bg-muted px-1 py-0.5 rounded">results/</code>
         </p>
         <Button variant="ghost" size="sm" onClick={load} disabled={loading}>
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          Actualizar
+          Refresh
         </Button>
       </div>
 
       {loading && (
         <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-          <Spinner size={16} /> Cargando…
+          <Spinner size={16} /> Loading…
         </div>
       )}
 
       {!loading && files.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
           <FolderOpen size={32} className="opacity-30" />
-          <p className="text-sm">No hay resultados guardados aún</p>
+          <p className="text-sm">No saved results yet</p>
         </div>
       )}
 
@@ -89,14 +89,14 @@ export function HistoryTab({ onLoad }) {
                     disabled={loadingFile === f.name}
                   >
                     {loadingFile === f.name ? <Spinner size={12} /> : null}
-                    Cargar
+                    Load
                   </Button>
-                  <a href={downloadUrl(f.name)} download title="Descargar JSON">
+                  <a href={downloadUrl(f.name)} download title="Download JSON">
                     <Button variant="ghost" size="icon">
                       <Download size={13} />
                     </Button>
                   </a>
-                  <a href={downloadUrl(csvName)} download title="Descargar CSV">
+                  <a href={downloadUrl(csvName)} download title="Download CSV">
                     <Button variant="ghost" size="sm" className="text-xs">CSV</Button>
                   </a>
                 </div>

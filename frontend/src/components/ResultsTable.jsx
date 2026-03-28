@@ -34,15 +34,15 @@ export function ResultsTable({ results, csvFile }) {
       {/* Summary bar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span><strong className="text-foreground">{results.length}</strong> resultados</span>
-          <span className="text-green-600 flex items-center gap-1"><Phone size={12} />{withPhone} con teléfono</span>
-          <span className="text-blue-600 flex items-center gap-1"><Mail size={12} />{withEmail} con email</span>
+          <span><strong className="text-foreground">{results.length}</strong> results</span>
+          <span className="text-green-600 flex items-center gap-1"><Phone size={12} />{withPhone} with phone</span>
+          <span className="text-blue-600 flex items-center gap-1"><Mail size={12} />{withEmail} with email</span>
         </div>
         {csvFile && (
           <a href={downloadUrl(csvFile)} download>
             <Button variant="outline" size="sm">
               <Download size={13} />
-              Descargar CSV
+              Download CSV
             </Button>
           </a>
         )}
@@ -54,11 +54,11 @@ export function ResultsTable({ results, csvFile }) {
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide w-48">Nombre / Web</th>
-                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">Teléfono</th>
+                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide w-48">Name / Website</th>
+                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">Phone</th>
                 <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">Email</th>
-                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">Dirección</th>
-                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">Redes</th>
+                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">Address</th>
+                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">Social</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

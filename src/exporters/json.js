@@ -1,5 +1,11 @@
 const fs = require('fs');
 
+/**
+ * Export an array of result objects to JSON.
+ * @param {Array} results - Scraped result objects.
+ * @param {string} outputPath - Destination file path.
+ * @returns {Promise<string>} Resolves with the output file path.
+ */
 async function exportJson(results, outputPath) {
   fs.writeFileSync(outputPath, JSON.stringify(results, null, 2), 'utf-8');
   return outputPath;

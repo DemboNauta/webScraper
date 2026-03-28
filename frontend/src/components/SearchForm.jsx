@@ -66,11 +66,11 @@ export function SearchForm({ onScrape, isRunning }) {
           </Select>
         </div>
         <div className="space-y-1.5 col-span-2 sm:col-span-2">
-          <Label>Opciones</Label>
+          <Label>Options</Label>
           <div className="flex items-center gap-3 h-9">
             <Switch id="browser" checked={browser} onCheckedChange={setBrowser} />
             <label htmlFor="browser" className="text-sm cursor-pointer select-none">
-              Modo navegador <span className="text-muted-foreground">(webs con JS)</span>
+              Browser mode <span className="text-muted-foreground">(JS-heavy sites)</span>
             </label>
           </div>
         </div>
@@ -78,7 +78,7 @@ export function SearchForm({ onScrape, isRunning }) {
 
       <Button type="submit" disabled={isRunning || !query.trim() || !location.trim()}>
         {isRunning ? <Spinner size={14} /> : <Search size={14} />}
-        {isRunning ? 'Scrapeando…' : 'Buscar y scrapear'}
+        {isRunning ? 'Scraping…' : 'Search & scrape'}
       </Button>
     </form>
   )
