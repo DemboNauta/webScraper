@@ -7,6 +7,7 @@ import { ResultsTable } from './components/ResultsTable'
 import { MapView } from './components/MapView'
 import { HistoryTab } from './components/HistoryTab'
 import { AISettings, loadSettings } from './components/AISettings'
+import { WebhookSettings, loadWebhookSettings } from './components/WebhookSettings'
 import { Card, CardContent } from './components/ui/Card'
 import { Button } from './components/ui/Button'
 import { Switch } from './components/ui/Switch'
@@ -28,6 +29,7 @@ export default function App() {
   const [files, setFiles] = useState(null)
   const [abortCtrl, setAbortCtrl] = useState(null)
   const [aiConfig, setAiConfig] = useState(loadSettings)
+  const [webhookConfig, setWebhookConfig] = useState(loadWebhookSettings)
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
   const [dedupEnabled, setDedupEnabled] = useState(false)
   const [view, setView] = useState('table') // 'table' | 'map'
@@ -73,7 +75,7 @@ export default function App() {
 
     const ctrl = startScrapeSSE({
       endpoint,
-      body: { ...body, aiConfig },
+      body: { ...body, aiConfig, webhookConfig },
       onStart: ({ total, mode, query, location }) => {
         if (mode === 'search') {
           addLog(`Searching "${query}" in ${location}…`, 'info')
@@ -121,6 +123,12 @@ export default function App() {
       onError: (msg) => {
         addLog(`Error: ${msg}`, 'error')
         setStatus('error')
+      },
+      onWebhookSent: ({ url }) => {
+        addLog(`📡 Webhook delivered to ${url}`, 'info')
+      },
+      onWebhookError: ({ message }) => {
+        addLog(`📡 Webhook failed: ${message}`, 'error')
       },
     })
 
@@ -193,6 +201,11 @@ export default function App() {
             {/* AI Settings panel — shown on search and urls tabs */}
             {tab !== 'history' && (
               <AISettings onChange={setAiConfig} />
+            )}
+
+            {/* Webhook settings panel — shown on search and urls tabs */}
+            {tab !== 'history' && (
+              <WebhookSettings onChange={setWebhookConfig} />
             )}
           </CardContent>
         </Card>

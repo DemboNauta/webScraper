@@ -12,12 +12,15 @@
  * @param {function} opts.onError
  * @param {function} opts.onAiQueries   — AI query builder result
  * @param {function} opts.onAiWarning   — non-fatal AI warning
+ * @param {function} opts.onWebhookSent — webhook delivered successfully
+ * @param {function} opts.onWebhookError — webhook delivery failed
  * @returns {{ abort: () => void }}
  */
 export function startScrapeSSE({
   endpoint, body,
   onStart, onUrlsFound, onProgress, onDone, onError,
   onAiQueries, onAiWarning,
+  onWebhookSent, onWebhookError,
 }) {
   const controller = new AbortController()
 
@@ -73,6 +76,8 @@ export function startScrapeSSE({
             else if (event === 'error')        onError?.(parsed.message)
             else if (event === 'ai_queries')   onAiQueries?.(parsed)
             else if (event === 'ai_warning')   onAiWarning?.(parsed)
+            else if (event === 'webhook_sent')  onWebhookSent?.(parsed)
+            else if (event === 'webhook_error') onWebhookError?.(parsed)
           } catch {
             // ignore malformed SSE lines
           }
