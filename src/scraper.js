@@ -21,6 +21,7 @@ class Scraper {
     this.concurrency = options.concurrency || config.concurrency;
     this.outputDir = options.outputDir || path.join(__dirname, '..', 'results');
     this.searchEngine = options.searchEngine || 'duckduckgo'; // 'google' | 'duckduckgo'
+    this.onProgress = options.onProgress || null;
     this.results = [];
 
     if (!fs.existsSync(this.outputDir)) {
@@ -98,10 +99,13 @@ class Scraper {
       }
 
       this._logResult(result);
+      if (this.onProgress) this.onProgress(result);
       return result;
     } catch (err) {
       console.error(chalk.red(`  ✗ ${url}: ${err.message}`));
-      return { url, error: err.message, phones: [], emails: [], socials: {} };
+      const errResult = { url, error: err.message, phones: [], emails: [], socials: {} };
+      if (this.onProgress) this.onProgress(errResult);
+      return errResult;
     } finally {
       await sleep(randomDelay());
     }
