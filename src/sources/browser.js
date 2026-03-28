@@ -101,6 +101,7 @@ async function scrapeWithBrowser(url, options = {}) {
       description,
       ...contacts,
       contactPageLinks: [...new Set(contactPageLinks)],
+      _pageText: $('body').text().replace(/\s+/g, ' ').trim(),
     };
   } finally {
     await page.close();

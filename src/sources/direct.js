@@ -65,22 +65,21 @@ async function scrapeUrl(url, options = {}) {
 }
 
 /**
- * If the main page lacks phones/emails, follow contact sub-pages.
+ * Always follow contact sub-pages to collect additional data.
  */
 async function scrapeWithFallback(url, options = {}) {
   const result = await scrapeUrl(url, options);
 
-  const needsMore = result.phones.length === 0 && result.emails.length === 0;
-  if (needsMore && result.contactPageLinks.length > 0) {
+  if (result.contactPageLinks.length > 0) {
     for (const link of result.contactPageLinks.slice(0, 2)) {
       try {
         await sleep(randomDelay());
         const sub = await scrapeUrl(link, options);
-        if (sub.phones.length > 0) result.phones = sub.phones;
-        if (sub.emails.length > 0) result.emails = sub.emails;
+        if (sub.phones.length > 0) result.phones = [...new Set([...result.phones, ...sub.phones])];
+        if (sub.emails.length > 0) result.emails = [...new Set([...result.emails, ...sub.emails])];
         if (!result.address && sub.address) result.address = sub.address;
         Object.assign(result.socials, sub.socials);
-        if (result.phones.length > 0 && result.emails.length > 0) break;
+        if (sub._pageText) result._pageText += '\n\n' + sub._pageText;
       } catch (_) {
         // ignore sub-page errors
       }

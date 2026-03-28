@@ -27,11 +27,9 @@ module.exports = {
 
   // Selectors and patterns used for contact extraction
   extraction: {
+    // Broad pre-capture pattern — libphonenumber-js handles real validation
     phonePatterns: [
-      // Spain
-      /(?:\+34|0034)?[\s.-]?[6-9]\d{2}[\s.-]?\d{3}[\s.-]?\d{3}/g,
-      // International generic
-      /\+?\d{1,3}[\s.-]?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}/g,
+      /\+?[\d][\d\s.\-()]{6,20}[\d]/g,
     ],
     emailPattern: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g,
     addressKeywords: ['calle', 'c/', 'avda', 'avenida', 'plaza', 'paseo', 'carretera', 'street', 'avenue', 'road'],
@@ -44,6 +42,10 @@ module.exports = {
       google_maps: 'maps.google',
     },
   },
+
+  // Aggregator/directory domains to skip when collecting search URLs
+  aggregatorDomains: [
+  ],
 
   // CSS selectors to prioritize for contact info
   contactSelectors: [

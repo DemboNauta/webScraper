@@ -25,6 +25,7 @@ class Scraper {
     this.outputDir = options.outputDir || path.join(__dirname, '..', 'results');
     this.searchEngine = options.searchEngine || 'duckduckgo';
     this.onProgress = options.onProgress || null;
+    this.onAiStep = options.onAiStep || null;
     // aiConfig: { enabled, provider, model, apiKey, baseUrl, features: { extraction } }
     this.aiConfig = options.aiConfig || null;
     this.aiModel = null; // lazy-initialised on first use
@@ -36,15 +37,99 @@ class Scraper {
   }
 
   /**
+   * Filter out aggregator/directory URLs using the blocklist in config.
+   * @param {string[]} urls
+   * @returns {string[]}
+   */
+  _filterAggregators(urls) {
+    const blocklist = config.aggregatorDomains || [];
+    const filtered = urls.filter(url =>
+      !blocklist.some(domain => url.includes(domain))
+    );
+    const removed = urls.length - filtered.length;
+    if (removed > 0) {
+      console.log(chalk.gray(`  Skipped ${removed} aggregator/directory URL(s).`));
+    }
+    return filtered;
+  }
+
+  /**
+   * Deduplicate results by business name.
+   * Groups results that appear to be the same business and keeps the richest entry,
+   * merging complementary data (phones, emails, address, socials).
+   * Removes entries with no useful data at all.
+   * @param {object[]} results
+   * @returns {object[]}
+   */
+  _deduplicateResults(results) {
+    // Remove completely empty results
+    const useful = results.filter(r =>
+      r.title || r.phones?.length || r.emails?.length || r.address
+    );
+
+    const normalize = (str = '') =>
+      str.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+        .replace(/\b(restaurante|bar|cafe|cafeteria|sushi|grill|urban|la|el|los|las|de|del)\b/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+
+    const groups = new Map();
+
+    for (const r of useful) {
+      const key = normalize(r.title) || normalize(r.address) || r.url;
+      if (!key) { groups.set(r.url, [r]); continue; }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+
+    const merged = [];
+    for (const group of groups.values()) {
+      if (group.length === 1) { merged.push(group[0]); continue; }
+
+      // Score each entry: more data = higher score
+      const score = r =>
+        (r.phones?.length || 0) * 3 +
+        (r.emails?.length || 0) * 3 +
+        (r.address ? 2 : 0) +
+        (r.title ? 1 : 0) +
+        Object.keys(r.socials || {}).length;
+
+      group.sort((a, b) => score(b) - score(a));
+      const best = { ...group[0] };
+
+      // Fill gaps from lower-ranked entries
+      for (const other of group.slice(1)) {
+        if (!best.phones?.length && other.phones?.length) best.phones = other.phones;
+        if (!best.emails?.length && other.emails?.length) best.emails = other.emails;
+        if (!best.address && other.address) best.address = other.address;
+        if (!best.description && other.description) best.description = other.description;
+        if (!best.openingHours && other.openingHours) best.openingHours = other.openingHours;
+        best.socials = { ...other.socials, ...best.socials };
+      }
+
+      merged.push(best);
+    }
+
+    const removed = results.length - merged.length;
+    if (removed > 0) {
+      console.log(chalk.gray(`  Deduplicated: ${results.length} → ${merged.length} results (removed ${removed} duplicates/empty).`));
+    }
+    return merged;
+  }
+
+  /**
    * Scrape a list of URLs.
    * @param {string[]} urls
    */
   async scrapeUrls(urls) {
+    const filteredUrls = this._filterAggregators(urls);
     const limit = pLimit(this.concurrency);
-    console.log(chalk.blue(`\nScraping ${urls.length} URL(s) [concurrency=${this.concurrency}]...\n`));
+    console.log(chalk.blue(`\nScraping ${filteredUrls.length} URL(s) [concurrency=${this.concurrency}]...\n`));
 
-    const tasks = urls.map(url => limit(() => this._scrapeOne(url)));
-    this.results = await Promise.all(tasks);
+    const tasks = filteredUrls.map(url => limit(() => this._scrapeOne(url)));
+    const raw = await Promise.all(tasks);
+    this.results = this._deduplicateResults(raw);
     return this.results;
   }
 
@@ -103,15 +188,15 @@ class Scraper {
 
       if (this.useBrowser) {
         result = await scrapeWithBrowser(url);
-        if (result.phones.length === 0 && result.emails.length === 0 && result.contactPageLinks.length > 0) {
+        if (result.contactPageLinks.length > 0) {
           for (const link of result.contactPageLinks.slice(0, 2)) {
             try {
               const sub = await scrapeWithBrowser(link);
-              if (sub.phones.length > 0) result.phones = sub.phones;
-              if (sub.emails.length > 0) result.emails = sub.emails;
+              if (sub.phones.length > 0) result.phones = [...new Set([...result.phones, ...sub.phones])];
+              if (sub.emails.length > 0) result.emails = [...new Set([...result.emails, ...sub.emails])];
               if (!result.address && sub.address) result.address = sub.address;
               Object.assign(result.socials, sub.socials);
-              if (result.phones.length > 0) break;
+              if (sub._pageText) result._pageText = (result._pageText || '') + '\n\n' + sub._pageText;
             } catch (_) {}
           }
         }
@@ -123,12 +208,21 @@ class Scraper {
       if (this.aiConfig?.enabled && this.aiConfig?.features?.extraction !== false) {
         const model = await this._getAIModel();
         if (model && result._pageText) {
+          this.onAiStep?.({ step: 'extracting', url });
           try {
             const { extractWithAI, mergeResults } = require('./ai/extractor');
-            const aiData = await extractWithAI(result._pageText, model);
+            const existing = {
+              phones: result.phones,
+              emails: result.emails,
+              address: result.address,
+              socials: result.socials,
+            };
+            const aiData = await extractWithAI(result._pageText, model, existing);
             result = mergeResults(aiData, result);
+            this.onAiStep?.({ step: 'extracted', url, phones: result.phones?.length || 0, emails: result.emails?.length || 0, address: !!result.address });
           } catch (aiErr) {
             console.warn(chalk.yellow(`  ⚠ AI extraction failed for ${url}: ${aiErr.message}`));
+            this.onAiStep?.({ step: 'extraction_failed', url, error: aiErr.message });
           }
         }
       }
