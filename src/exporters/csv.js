@@ -1,5 +1,6 @@
 const { createObjectCsvWriter } = require('csv-writer');
 const path = require('path');
+const fs = require('fs');
 
 /**
  * Export an array of result objects to CSV.
@@ -35,6 +36,13 @@ async function exportCsv(results, outputPath) {
   }));
 
   await csvWriter.writeRecords(rows);
+
+  // Prepend UTF-8 BOM so Excel on Windows opens the file with correct encoding
+  const content = fs.readFileSync(outputPath);
+  if (content[0] !== 0xEF) {
+    fs.writeFileSync(outputPath, Buffer.concat([Buffer.from('\uFEFF', 'utf8'), content]));
+  }
+
   return outputPath;
 }
 

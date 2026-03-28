@@ -53,20 +53,14 @@ async function duckDuckGoSearch(query, { limit = 10, userAgent } = {}) {
   const $ = cheerio.load(resp.data);
 
   const results = [];
-  $('.result__url, .result__a').each((_, el) => {
-    const href = $(el).attr('href') || $(el).text().trim();
-    if (href.startsWith('http') && !href.includes('duckduckgo.com')) {
-      results.push(href);
-    }
-  });
-
-  // Also try redirect links
-  $('a.result__a').each((_, el) => {
+  // DuckDuckGo HTML uses redirect links: //duckduckgo.com/l/?uddg=<encoded-url>
+  $('a[href*="duckduckgo.com/l/"]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const match = href.match(/uddg=([^&]+)/);
     if (match) {
       try {
-        results.push(decodeURIComponent(match[1]));
+        const target = decodeURIComponent(match[1]);
+        if (target.startsWith('http')) results.push(target);
       } catch (_) {}
     }
   });

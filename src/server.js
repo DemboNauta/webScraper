@@ -109,6 +109,9 @@ app.post('/api/scrape/search', async (req, res) => {
         result,
       });
     },
+    onAiStep: (data) => {
+      sse.send('ai_step', data);
+    },
   });
 
   sse.send('start', { mode: 'search', query, location, limit });
@@ -125,6 +128,7 @@ app.post('/api/scrape/search', async (req, res) => {
         const { buildSearchPlan } = require('./ai/queryBuilder');
         const { createModel } = require('./ai/provider');
         const model = await createModel(aiConfig);
+        sse.send('ai_step', { step: 'building_queries', message: 'Building optimised search queries…' });
         const plan = await buildSearchPlan(query, location, model);
         searchQueries = plan.queries;
         if (plan.suggestedLimit) actualLimit = Math.min(plan.suggestedLimit, 50);
